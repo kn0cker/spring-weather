@@ -13,7 +13,7 @@ public class CsvFileService {
 
     private static final Logger logger = LoggerFactory.getLogger(CsvFileService.class);
 
-    private static final String BASE_URL = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access";
+    private static final String BASE_URL = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/";
     private final RestTemplate restTemplate = new RestTemplate();
 
     public List<String> getCsvFileUrls() {
