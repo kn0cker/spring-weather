@@ -1,14 +1,15 @@
 package com.example.demo.batch;
 
 import com.example.demo.service.CsvFileService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Bean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 
 import java.util.List;
 
@@ -16,22 +17,41 @@ import java.util.List;
 public class JobLuncherConfig {
 
     private final CsvFileService csvFileService;
+    private static final Logger logger = LoggerFactory.getLogger(JobLuncherConfig.class);
+    private final JobLauncher jobLauncher;
+    private final Job fetchCsvChunkJob;
 
-    public JobLuncherConfig(CsvFileService csvFileService) {
+    public JobLuncherConfig(JobLauncher jobLauncher, Job fetchCsvChunkJob, CsvFileService csvFileService) {
+        this.jobLauncher = jobLauncher;
+        this.fetchCsvChunkJob = fetchCsvChunkJob;
         this.csvFileService = csvFileService;
     }
 
-    @Bean
-    public CommandLineRunner runJob(JobLauncher jobLauncher, Job simpleJob) {
+    @EventListener(ApplicationReadyEvent.class)
+    public void launchJobsWhenReady() {
+        logger.info("Application started. Launching batch jobs...");
+
         List<String> allCsvUrls = csvFileService.getCsvFileUrls();
-        System.out.println("CSV Urls: " + allCsvUrls.size());
-        return args -> {
-            JobParameters parameters = new JobParametersBuilder()
-                    .addLong("time", System.currentTimeMillis()) // Unique ID
+        int chunkSize = 10;
+        int totalJobs = (int) Math.ceil((double) allCsvUrls.size() / chunkSize);
+
+        for (int i = 0; i < totalJobs; i++) {
+            int start = i * chunkSize;
+            int end = Math.min(start + chunkSize, allCsvUrls.size());
+            List<String> chunk = allCsvUrls.subList(start, end);
+
+            String urlsParam = String.join(",", chunk);
+            JobParameters params = new JobParametersBuilder()
+                    .addString("urls", urlsParam)
+                    .addLong("time", System.currentTimeMillis())  // Ensure unique instance
                     .toJobParameters();
 
-            JobExecution execution = jobLauncher.run(simpleJob, parameters);
-            System.out.println("Job Status: " + execution.getStatus());
-        };
+            try {
+                logger.info("Launching job for URLs {} to {}", start, end - 1);
+                jobLauncher.run(fetchCsvChunkJob, params);
+            } catch (Exception e) {
+                logger.error("Failed to launch job for chunk {}: {}", i, e.getMessage(), e);
+            }
+        }
     }
 }
