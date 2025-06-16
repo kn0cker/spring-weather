@@ -16,13 +16,14 @@ public class Measurement {
     private String id;
     @ManyToOne(fetch = FetchType.LAZY)
     private Station station;
-    private Long precipitation;
-    private Long snowfall;
-    private Long snowDepth;
-    private Long maxTemperature;
-    private Long minTemperature;
+    private LocalDateTime date;
+    private Double precipitation;
+    private Double snowfall;
+    private Double snowDepth;
+    private Double maxTemperature;
+    private Double minTemperature;
     private LocalDateTime peakWindGust;
-    private Long peakWindGustSpeed;
+    private Double peakWindGustSpeed;
     private String peakWindGustDirection;
     private LocalDateTime created;
     private LocalDateTime updated;

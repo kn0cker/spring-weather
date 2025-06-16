@@ -19,9 +19,9 @@ public class Station {
     private String id;
     private String stationId;
     private String name;
-    private Long latitude;
-    private Long longitude;
-    private Long elevation;
+    private Double latitude;
+    private Double longitude;
+    private Double elevation;
     private LocalDateTime created;
     private LocalDateTime updated;
 }
