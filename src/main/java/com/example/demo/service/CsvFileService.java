@@ -7,6 +7,8 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class CsvFileService {
@@ -17,27 +19,29 @@ public class CsvFileService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public List<String> getCsvFileUrls() {
-        List<String> urls = new ArrayList<>();
+        List<String> csvPaths = new ArrayList<>();
 
         logger.info("Fetching CSV file URLs from {}", BASE_URL);
 
         try {
             String html = restTemplate.getForObject(BASE_URL, String.class);
             if (html != null) {
-                String[] lines = html.split("\n");
-                for (String line : lines) {
-                    if (line.contains("<a href=\"") && line.contains(".csv")) {
-                        int start = line.indexOf("<a href=\"") + 9;
-                        int end = line.indexOf("\"", start);
-                        if (start > 0 && end > start) {
-                            String fileName = line.substring(start, end);
-                            if (fileName.endsWith(".csv")) {
-                                String fullUrl = BASE_URL + "/" + fileName;
-                                urls.add(fullUrl);
-                                logger.debug("Found CSV: {}", fullUrl);
-                            }
-                        }
+                Pattern anchor = Pattern.compile("<a\\s+href=\"([^\"]+?\\.csv)\"", Pattern.CASE_INSENSITIVE);
+                Matcher matcher = anchor.matcher(html);
+
+                while (matcher.find()) {
+                    String href = matcher.group(1);          // the value inside href="…"
+
+                    String relative = href.startsWith(BASE_URL)
+                            ? href.substring(BASE_URL.length())
+                            : href;
+
+                    if (relative.startsWith("/")) {
+                        relative = relative.substring(1);
                     }
+
+                    csvPaths.add(relative);
+                    logger.debug("Found CSV path: {}", relative);
                 }
             } else {
                 logger.warn("Received empty response from {}", BASE_URL);
@@ -46,8 +50,7 @@ public class CsvFileService {
             logger.error("Error fetching or parsing data from {}: {}", BASE_URL, e.getMessage(), e);
         }
 
-        logger.info("Total CSV files found: {}", urls.size());
-
-        return urls;
+        logger.info("Total CSV files found: {}", csvPaths.size());
+        return csvPaths;
     }
 }

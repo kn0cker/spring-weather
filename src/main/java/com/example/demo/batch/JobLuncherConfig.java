@@ -32,7 +32,7 @@ public class JobLuncherConfig {
         logger.info("Application started. Launching batch jobs...");
 
         List<String> allCsvUrls = csvFileService.getCsvFileUrls();
-        int chunkSize = 10;
+        int chunkSize = 100;
         int totalJobs = (int) Math.ceil((double) allCsvUrls.size() / chunkSize);
 
         for (int i = 0; i < totalJobs; i++) {
