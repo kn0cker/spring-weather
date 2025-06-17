@@ -1,5 +1,7 @@
 package com.example.demo.batch;
 
+import com.example.demo.entity.Measurement;
+import com.example.demo.entity.Station;
 import com.example.demo.service.CsvFileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,13 +16,16 @@ import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.transaction.PlatformTransactionManager;
-
-import java.nio.charset.StandardCharsets;
+import java.io.BufferedReader;
+import java.io.StringReader;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -93,16 +98,97 @@ public class BatchConfig {
                     }
                     logger.info("Validating {} CSV file(s)...", csvData.size());
 
+                    List<Station> stations = new ArrayList<>();
+                    List<Measurement> measurements = new ArrayList<>();
+
+                    DateTimeFormatter dateAtMidnight = new DateTimeFormatterBuilder()
+                            .appendPattern("yyyy-MM-dd")
+                            .parseDefaulting(ChronoField.HOUR_OF_DAY,    0)
+                            .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+                            .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+                            .toFormatter();
+
+                    for (String csv : csvData) {
+                        if (csv.isBlank()) {
+                            logger.warn("Found empty CSV data, skipping.");
+                            continue;
+                        }
+
+                        try (BufferedReader br = new BufferedReader(new StringReader(csv))) {
+                            br.lines()
+                                    .skip(1)
+                                    .forEach(line -> {
+                                        String[] fields = line.split(",");
+                                        if(!stations.stream().anyMatch(station -> station.getStationId() == fields[0].trim().replaceAll("\"", ""))) {
+                                            Station station = new Station();
+                                            station.setStationId(fields[0].trim().replaceAll("\"", ""));
+                                            station.setName(fields[5].trim().replaceAll("\"", ""));
+                                            station.setLatitude(Double.parseDouble(fields[2].trim().replaceAll("\"", "")));
+                                            station.setLongitude(Double.parseDouble(fields[3].trim().replaceAll("\"", "")));
+                                            station.setElevation(Double.parseDouble(fields[4].trim().replaceAll("\"", "")));
+                                            station.setCreated(LocalDateTime.now());
+                                            station.setUpdated(LocalDateTime.now());
+                                            stations.add(station);
+                                        }
+
+                                        Measurement measurement = new Measurement();
+                                        measurement.setStation(stations.stream().filter(station -> Objects.equals(station.getStationId(), fields[0].trim().replaceAll("\"", ""))).findFirst().orElse(null));
+                                        measurement.setDate(LocalDateTime.parse(fields[1].trim().replaceAll("\"", ""), dateAtMidnight));
+                                        measurement.setMaxTemperature(parseDoubleOrZero(fields[12]));
+                                        measurement.setMinTemperature(parseDoubleOrZero(fields[13]));
+                                        measurement.setPrecipitation(parseDoubleOrZero(fields[14]));
+
+                                        measurement.setCreated(LocalDateTime.now());
+                                        measurement.setUpdated(LocalDateTime.now());
+                                        measurements.add(measurement);
+                                    });
+                        }
+
+                        logger.info("Processed CSV data with {} stations and {} measurements.",
+                                stations.size(), measurements.size());
+
+                        ctx.remove(CTX_KEY_CSV_STRING);
+                        ctx.put("measurements", measurements);
+                        ctx.put("stations", stations);
+                    }
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
                 .build();
+    }
+
+    private static double parseDoubleOrZero(String raw) {
+        String cleaned = raw.trim().replace("\"", "");
+        return cleaned.isEmpty() ? 0.0 : Double.parseDouble(cleaned);
     }
 
     @Bean
     public Step persist(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new StepBuilder("persistStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
-                    logger.info("Persisting data...");
+                    ExecutionContext ctx = contribution.getStepExecution()
+                            .getJobExecution()
+                            .getExecutionContext();
+
+                    @SuppressWarnings("unchecked")
+                    List<Measurement> measurements =
+                            (List<Measurement>) ctx.get("measurements");
+                    @SuppressWarnings("unchecked")
+                    List<Station> stations =
+                            (List<Station>) ctx.get("stations");
+
+                    if (measurements == null || measurements.isEmpty()) {
+                        logger.warn("No measurements found – skipping persistence.");
+                        return RepeatStatus.FINISHED;
+                    }
+
+                    if (stations == null || stations.isEmpty()) {
+                        logger.warn("No stations found – skipping persistence.");
+                        return RepeatStatus.FINISHED;
+                    }
+
+                    logger.info("Persisting {} measurements and {} stations...",
+                            measurements.size(), stations.size());
+
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
                 .build();
