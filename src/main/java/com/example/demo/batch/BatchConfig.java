@@ -10,6 +10,7 @@ import org.springframework.batch.core.configuration.annotation.EnableBatchProces
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 public class BatchConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(BatchConfig.class);
+    private static final String CTX_KEY_CSV_BYTES = "csvBytes";
 
     @Bean
     public Job simpleJob(JobRepository repository, Step load, Step validate, Step persist) {
@@ -41,10 +44,12 @@ public class BatchConfig {
         return new StepBuilder("loadStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
 
-                    //TODO: For each URL, fetch the CSV file and start Stream/download it
-
                     JobParameters jobParameters =
                             contribution.getStepExecution().getJobParameters();
+
+                    ExecutionContext ctx    = contribution.getStepExecution()
+                            .getJobExecution()
+                            .getExecutionContext();
 
                     List<String> urls = jobParameters.getString("urls").isEmpty()
                             ? List.of() : List.of(jobParameters.getString("urls").split(","));
@@ -54,16 +59,16 @@ public class BatchConfig {
                         logger.warn("No URLs provided for loading data.");
                         return RepeatStatus.FINISHED;
                     }
-
+                    List<byte[]> csvBytes = new ArrayList<>();
                     for (String url : urls) {
-                        byte[] bytes = csvFileService.streamCsvFile(url)
-                                        .collect(Collectors.joining("\n"))
-                                        .getBytes(StandardCharsets.UTF_8);
-
-                        InputStreamResource resource = new InputStreamResource(
-                                new ByteArrayResource(bytes)
-                        );
+                        String csv = csvFileService.streamCsvFile(url)
+                                .collect(Collectors.joining("\n"));
+                        csvBytes.add(csv.getBytes(StandardCharsets.UTF_8));
                     }
+
+                    // Put the list into the Job-wide ExecutionContext
+                    ctx.put(CTX_KEY_CSV_BYTES, csvBytes);
+                    logger.debug("Stored {} CSV file(s) in execution context.", csvBytes.size());
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
@@ -74,7 +79,20 @@ public class BatchConfig {
     public Step validate(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new StepBuilder("validateStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
-                    logger.info("Validating data...");
+                    ExecutionContext ctx = contribution.getStepExecution()
+                            .getJobExecution()
+                            .getExecutionContext();
+
+                    @SuppressWarnings("unchecked")
+                    List<byte[]> csvBytes =
+                            (List<byte[]>) ctx.get(CTX_KEY_CSV_BYTES);
+
+                    if (csvBytes == null || csvBytes.isEmpty()) {
+                        logger.warn("No CSV data found – skipping validation.");
+                        return RepeatStatus.FINISHED;
+                    }
+                    logger.info("Validating {} CSV file(s)...", csvBytes.size());
+
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
                 .build();
