@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: my-spring-app
-        image: ghcr.io/bencoepp/spring-weather:sha-92a2851
+        image: ghcr.io/bencoepp/spring-weather:latest
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 8080
