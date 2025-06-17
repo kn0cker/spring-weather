@@ -2,6 +2,8 @@ package com.example.demo.batch;
 
 import com.example.demo.entity.Measurement;
 import com.example.demo.entity.Station;
+import com.example.demo.repository.MeasurementRepository;
+import com.example.demo.repository.StationRepository;
 import com.example.demo.service.CsvFileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,38 +121,47 @@ public class BatchConfig {
                                     .skip(1)
                                     .forEach(line -> {
                                         String[] fields = line.split(",");
-                                        if(!stations.stream().anyMatch(station -> station.getStationId() == fields[0].trim().replaceAll("\"", ""))) {
-                                            Station station = new Station();
-                                            station.setStationId(fields[0].trim().replaceAll("\"", ""));
-                                            station.setName(fields[5].trim().replaceAll("\"", ""));
-                                            station.setLatitude(Double.parseDouble(fields[2].trim().replaceAll("\"", "")));
-                                            station.setLongitude(Double.parseDouble(fields[3].trim().replaceAll("\"", "")));
-                                            station.setElevation(Double.parseDouble(fields[4].trim().replaceAll("\"", "")));
-                                            station.setCreated(LocalDateTime.now());
-                                            station.setUpdated(LocalDateTime.now());
-                                            stations.add(station);
+                                        if(stations.stream().noneMatch(station -> Objects.equals(station.getStationId(), fields[0].trim().replaceAll("\"", "")))) {
+                                            try{
+                                                Station station = new Station();
+                                                station.setStationId(fields[0].trim().replaceAll("\"", ""));
+                                                station.setName(fields[5].trim().replaceAll("\"", ""));
+                                                station.setLatitude(Double.parseDouble(fields[2].trim().replaceAll("\"", "")));
+                                                station.setLongitude(Double.parseDouble(fields[3].trim().replaceAll("\"", "")));
+                                                station.setElevation(Double.parseDouble(fields[4].trim().replaceAll("\"", "")));
+                                                station.setCreated(LocalDateTime.now());
+                                                station.setUpdated(LocalDateTime.now());
+                                                stations.add(station);
+                                            }catch (Exception e){
+                                                logger.debug("Failed to parse station data: {}", e.getMessage());
+                                            }
                                         }
 
-                                        Measurement measurement = new Measurement();
-                                        measurement.setStation(stations.stream().filter(station -> Objects.equals(station.getStationId(), fields[0].trim().replaceAll("\"", ""))).findFirst().orElse(null));
-                                        measurement.setDate(LocalDateTime.parse(fields[1].trim().replaceAll("\"", ""), dateAtMidnight));
-                                        measurement.setMaxTemperature(parseDoubleOrZero(fields[12]));
-                                        measurement.setMinTemperature(parseDoubleOrZero(fields[13]));
-                                        measurement.setPrecipitation(parseDoubleOrZero(fields[14]));
+                                        try{
+                                            Measurement measurement = new Measurement();
+                                            measurement.setStation(stations.stream().filter(station -> Objects.equals(station.getStationId(), fields[0].trim().replaceAll("\"", ""))).findFirst().orElse(null));
+                                            measurement.setDate(LocalDateTime.parse(fields[1].trim().replaceAll("\"", ""), dateAtMidnight));
+                                            measurement.setMaxTemperature(parseDoubleOrZero(fields[12]));
+                                            measurement.setMinTemperature(parseDoubleOrZero(fields[13]));
+                                            measurement.setPrecipitation(parseDoubleOrZero(fields[6]));
 
-                                        measurement.setCreated(LocalDateTime.now());
-                                        measurement.setUpdated(LocalDateTime.now());
-                                        measurements.add(measurement);
+                                            measurement.setCreated(LocalDateTime.now());
+                                            measurement.setUpdated(LocalDateTime.now());
+                                            measurements.add(measurement);
+                                        }catch (Exception e){
+                                            logger.debug("Failed to parse measurement data: {}", e.getMessage());
+                                        }
                                     });
                         }
 
                         logger.info("Processed CSV data with {} stations and {} measurements.",
                                 stations.size(), measurements.size());
-
-                        ctx.remove(CTX_KEY_CSV_STRING);
-                        ctx.put("measurements", measurements);
-                        ctx.put("stations", stations);
                     }
+
+                    ctx.remove(CTX_KEY_CSV_STRING);
+                    ctx.put("measurements", measurements);
+                    ctx.put("stations", stations);
+
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
                 .build();
@@ -158,11 +169,16 @@ public class BatchConfig {
 
     private static double parseDoubleOrZero(String raw) {
         String cleaned = raw.trim().replace("\"", "");
-        return cleaned.isEmpty() ? 0.0 : Double.parseDouble(cleaned);
+        if (cleaned.isEmpty()) return 0.0;
+        try {
+            return Double.parseDouble(cleaned);
+        } catch (NumberFormatException ex) {
+            return 0.0;
+        }
     }
 
     @Bean
-    public Step persist(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+    public Step persist(JobRepository jobRepository, PlatformTransactionManager transactionManager, StationRepository stationRepository, MeasurementRepository measurementRepository) {
         return new StepBuilder("persistStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
                     ExecutionContext ctx = contribution.getStepExecution()
@@ -188,6 +204,10 @@ public class BatchConfig {
 
                     logger.info("Persisting {} measurements and {} stations...",
                             measurements.size(), stations.size());
+
+                    for (Station station : stations) {
+
+                    }
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
