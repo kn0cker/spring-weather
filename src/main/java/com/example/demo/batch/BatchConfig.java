@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 public class BatchConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(BatchConfig.class);
-    private static final String CTX_KEY_CSV_BYTES = "csvBytes";
+    private static final String CTX_KEY_CSV_STRING = "csvString";
 
     @Bean
     public Job simpleJob(JobRepository repository, Step load, Step validate, Step persist) {
@@ -59,16 +59,16 @@ public class BatchConfig {
                         logger.warn("No URLs provided for loading data.");
                         return RepeatStatus.FINISHED;
                     }
-                    List<byte[]> csvBytes = new ArrayList<>();
+                    List<String> csvData = new ArrayList<>();
                     for (String url : urls) {
                         String csv = csvFileService.streamCsvFile(url)
                                 .collect(Collectors.joining("\n"));
-                        csvBytes.add(csv.getBytes(StandardCharsets.UTF_8));
+                        csvData.add(csv);
                     }
 
                     // Put the list into the Job-wide ExecutionContext
-                    ctx.put(CTX_KEY_CSV_BYTES, csvBytes);
-                    logger.debug("Stored {} CSV file(s) in execution context.", csvBytes.size());
+                    ctx.put(CTX_KEY_CSV_STRING, csvData);
+                    logger.debug("Stored {} CSV file(s) in execution context.", csvData.size());
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
@@ -84,14 +84,14 @@ public class BatchConfig {
                             .getExecutionContext();
 
                     @SuppressWarnings("unchecked")
-                    List<byte[]> csvBytes =
-                            (List<byte[]>) ctx.get(CTX_KEY_CSV_BYTES);
+                    List<String> csvData =
+                            (List<String>) ctx.get(CTX_KEY_CSV_STRING);
 
-                    if (csvBytes == null || csvBytes.isEmpty()) {
+                    if (csvData == null || csvData.isEmpty()) {
                         logger.warn("No CSV data found – skipping validation.");
                         return RepeatStatus.FINISHED;
                     }
-                    logger.info("Validating {} CSV file(s)...", csvBytes.size());
+                    logger.info("Validating {} CSV file(s)...", csvData.size());
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
