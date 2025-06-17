@@ -21,7 +21,7 @@ public class BatchConfig {
 
     @Bean
     public Job simpleJob(JobRepository repository, Step load, Step validate, Step persist) {
-        return new JobBuilder("simpleJob", repository)
+        return new JobBuilder("weatherJob", repository)
                 .start(load)
                 .next(validate)
                 .next(persist)
@@ -30,7 +30,7 @@ public class BatchConfig {
 
     @Bean
     public Step load(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new StepBuilder("simpleStep", jobRepository)
+        return new StepBuilder("loadStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
                     logger.info("Loading data...");
                     return RepeatStatus.FINISHED;
