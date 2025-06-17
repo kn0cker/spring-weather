@@ -1,5 +1,7 @@
 package com.example.demo.batch;
 
+import com.example.demo.entity.Measurement;
+import com.example.demo.entity.Station;
 import com.example.demo.service.CsvFileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,16 +53,17 @@ public class BatchConfig {
                             .getJobExecution()
                             .getExecutionContext();
 
-                    List<String> urls = jobParameters.getString("urls").isEmpty()
-                            ? List.of() : List.of(jobParameters.getString("urls").split(","));
+                    List<String> paths = jobParameters.getString("paths").isEmpty()
+                            ? List.of() : List.of(jobParameters.getString("paths").split(","));
 
-                    logger.info("Loading data from URLs: {}", urls);
-                    if (urls.isEmpty()) {
+                    logger.info("Loading data from URLs: {}", paths);
+                    if (paths.isEmpty()) {
                         logger.warn("No URLs provided for loading data.");
                         return RepeatStatus.FINISHED;
                     }
+
                     List<String> csvData = new ArrayList<>();
-                    for (String url : urls) {
+                    for (String url : paths) {
                         String csv = csvFileService.streamCsvFile(url)
                                 .collect(Collectors.joining("\n"));
                         csvData.add(csv);
@@ -91,7 +94,19 @@ public class BatchConfig {
                         logger.warn("No CSV data found – skipping validation.");
                         return RepeatStatus.FINISHED;
                     }
+
                     logger.info("Validating {} CSV file(s)...", csvData.size());
+
+                    ArrayList<Measurement> validatedMeasurements = new ArrayList<Measurement>();
+                    ArrayList<Station> validatedStations = new ArrayList<Station>();
+
+                    for (String csvFileString : csvData) //csvDateienAlsStrings
+                    {
+                        for (String csvFileRow : csvFileString.split("\n")) //rows
+                        {
+
+                        }
+                    }
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)

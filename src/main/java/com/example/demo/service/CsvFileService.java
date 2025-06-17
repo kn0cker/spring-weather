@@ -2,13 +2,22 @@ package com.example.demo.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 @Service
 public class CsvFileService {
@@ -73,14 +82,16 @@ public class CsvFileService {
         return csvPaths;
     }
 
-    public Stream<String> streamCsvFile(String relativePath) {
+    public Stream<String> streamCsvFile(String absolutePath) {
 
-        Assert.hasText(relativePath, "The relative path has to be defined");
+        Assert.hasText(absolutePath, "The relative path has to be defined");
 
-        String url = BASE_URL + (relativePath.startsWith("/") ? relativePath.substring(1) : relativePath);
-        logger.info("Streaming CSV file from URL: {}", url);
+        //String url = BASE_URL + (absolutePath.startsWith("/") ? absolutePath.substring(1) : absolutePath);
+        //logger.info("Streaming CSV file from URL: {}", url);
 
         try {
+            /*
+
             ResponseEntity<Resource> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
@@ -91,11 +102,13 @@ public class CsvFileService {
             if (resource == null) {
                 logger.warn("No content found at URL: {}", url);
                 return Stream.empty();
-            }
+            }*/
 
-            InputStream is = resource.getInputStream();
+            //InputStream is = resource.getInputStream();
+            FileInputStream fis = new FileInputStream(absolutePath);
+
             BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(is, StandardCharsets.UTF_8));
+                    new InputStreamReader(fis, StandardCharsets.UTF_8));
 
             return reader.lines()
                     .onClose(() -> {
@@ -106,7 +119,7 @@ public class CsvFileService {
                         }
                     });
         }catch (Exception e) {
-            logger.error("Error streaming CSV file from {}: {}", url, e.getMessage(), e);
+            logger.error("Error streaming CSV file from {}: {}", absolutePath, e.getMessage(), e);
             return Stream.empty();
         }
     }

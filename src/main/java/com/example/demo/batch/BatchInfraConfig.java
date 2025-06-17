@@ -17,8 +17,8 @@ public class BatchInfraConfig {
     public ThreadPoolTaskExecutor batchTaskExecutor() {
         ThreadPoolTaskExecutor t = new ThreadPoolTaskExecutor();
         t.setThreadNamePrefix("batch-");
-        t.setCorePoolSize(4);
-        t.setMaxPoolSize(10);
+        t.setCorePoolSize(2);
+        t.setMaxPoolSize(5);
         t.initialize();
         return t;
     }

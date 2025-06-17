@@ -32,16 +32,16 @@ public class StartupJobRunner {
     public void launchJobsWhenReady() {
         log.info("Application started – launching batch jobs asynchronously…");
 
-        var urls = csvFileService.getCsvFileUrls();
+        var paths = csvFileService.getCsvFilePaths();
         int chunkSize = 100;
-        int totalJobs = (int) Math.ceil((double) urls.size() / chunkSize);
+        int totalJobs = (int) Math.ceil((double) paths.size() / chunkSize);
 
         for (int i = 0; i < totalJobs; i++) {
             int start = i * chunkSize;
-            int end   = Math.min(start + chunkSize, urls.size());
+            int end   = Math.min(start + chunkSize, paths.size());
 
             JobParameters params = new JobParametersBuilder()
-                    .addString("urls", String.join(",", urls.subList(start, end)))
+                    .addString("paths", String.join(",", paths.subList(start, end)))
                     .addLong("time", System.currentTimeMillis())   // unique instance
                     .toJobParameters();
 
