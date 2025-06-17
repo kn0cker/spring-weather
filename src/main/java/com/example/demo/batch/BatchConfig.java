@@ -98,7 +98,6 @@ public class BatchConfig {
                         logger.warn("No CSV data found – skipping validation.");
                         return RepeatStatus.FINISHED;
                     }
-                    logger.info("Validating {} CSV file(s)...", csvData.size());
 
                     List<Station> stations = new ArrayList<>();
                     List<Measurement> measurements = new ArrayList<>();
@@ -153,14 +152,14 @@ public class BatchConfig {
                                         }
                                     });
                         }
-
-                        logger.info("Processed CSV data with {} stations and {} measurements.",
-                                stations.size(), measurements.size());
                     }
 
                     ctx.remove(CTX_KEY_CSV_STRING);
                     ctx.put("measurements", measurements);
                     ctx.put("stations", stations);
+
+                    logger.info("Processed CSV data with {} stations and {} measurements.",
+                            stations.size(), measurements.size());
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
@@ -206,8 +205,12 @@ public class BatchConfig {
                             measurements.size(), stations.size());
 
                     for (Station station : stations) {
-
+                        if(!stationRepository.existsById(station.getStationId())) {
+                            stationRepository.save(station);
+                        }
                     }
+
+                    measurementRepository.saveAll(measurements);
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
