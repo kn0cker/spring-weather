@@ -21,8 +21,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -98,15 +97,38 @@ public class BatchConfig {
                     logger.info("Validating {} CSV file(s)...", csvData.size());
 
                     ArrayList<Measurement> validatedMeasurements = new ArrayList<Measurement>();
-                    ArrayList<Station> validatedStations = new ArrayList<Station>();
+                    HashSet<Station> validatedStations = new HashSet<Station>();
 
                     for (String csvFileString : csvData) //csvDateienAlsStrings
                     {
                         for (String csvFileRow : csvFileString.split("\n")) //rows
                         {
+                            String[] csvRowSplit = csvFileRow.split(",");
 
+                            try {
+                                Station station = new Station();
+                                station.setStationId(csvRowSplit[0]);
+                                station.setName(csvRowSplit[5]);
+                                station.setLatitude(Double.parseDouble(csvRowSplit[2]));
+                                station.setLatitude(Double.parseDouble(csvRowSplit[3]));
+                                station.setElevation(Double.parseDouble(csvRowSplit[4]));
+
+                                if (!validatedStations.add(station))
+                                    station = validatedStations.
+
+
+                               // Measurement measurement = new Measurement();
+//measurement.setStation(station);
+
+
+                                validatedStations.add(station);
+                            } catch (Exception e) //station fehler
+                            {
+                                logger.error("Zeile konnte nicht gelesen werden, Zeile: " + csvFileRow);
+                            }
                         }
                     }
+
 
                     return RepeatStatus.FINISHED;
                 }, transactionManager)

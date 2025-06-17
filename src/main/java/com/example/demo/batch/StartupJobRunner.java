@@ -33,7 +33,7 @@ public class StartupJobRunner {
         log.info("Application started – launching batch jobs asynchronously…");
 
         var paths = csvFileService.getCsvFilePaths();
-        int chunkSize = 100;
+        int chunkSize = 20;
         int totalJobs = (int) Math.ceil((double) paths.size() / chunkSize);
 
         for (int i = 0; i < totalJobs; i++) {
