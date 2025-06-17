@@ -1,14 +1,24 @@
 package com.example.demo.service;
 
+import org.springframework.core.io.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 @Service
 public class CsvFileService {
@@ -52,5 +62,43 @@ public class CsvFileService {
 
         logger.info("Total CSV files found: {}", csvPaths.size());
         return csvPaths;
+    }
+
+    public Stream<String> streamCsvFile(String relativePath) {
+
+        Assert.hasText(relativePath, "The relative path has to be defined");
+
+        String url = BASE_URL + (relativePath.startsWith("/") ? relativePath.substring(1) : relativePath);
+        logger.info("Streaming CSV file from URL: {}", url);
+
+        try {
+            ResponseEntity<Resource> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    HttpEntity.EMPTY,
+                    Resource.class);
+
+            Resource resource = response.getBody();
+            if (resource == null) {
+                logger.warn("No content found at URL: {}", url);
+                return Stream.empty();
+            }
+
+            InputStream is = resource.getInputStream();
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(is, StandardCharsets.UTF_8));
+
+            return reader.lines()
+                    .onClose(() -> {
+                        try {
+                            reader.close();
+                        } catch (Exception e) {
+                            logger.error("Error closing reader: {}", e.getMessage(), e);
+                        }
+                    });
+        }catch (Exception e) {
+            logger.error("Error streaming CSV file from {}: {}", url, e.getMessage(), e);
+            return Stream.empty();
+        }
     }
 }
