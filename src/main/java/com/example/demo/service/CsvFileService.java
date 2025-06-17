@@ -28,7 +28,7 @@ public class CsvFileService {
     private static final String BASE_URL = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/";
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public List<String> getCsvFileUrls() {
+    public List<String> getCsvFileUrls(int maxFiles) {
         List<String> csvPaths = new ArrayList<>();
 
         logger.info("Fetching CSV file URLs from {}", BASE_URL);
@@ -39,7 +39,7 @@ public class CsvFileService {
                 Pattern anchor = Pattern.compile("<a\\s+href=\"([^\"]+?\\.csv)\"", Pattern.CASE_INSENSITIVE);
                 Matcher matcher = anchor.matcher(html);
 
-                while (matcher.find()) {
+                while (matcher.find() && csvPaths.size() < maxFiles) {
                     String href = matcher.group(1);          // the value inside href="…"
 
                     String relative = href.startsWith(BASE_URL)
