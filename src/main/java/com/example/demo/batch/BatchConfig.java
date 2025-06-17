@@ -33,6 +33,7 @@ public class BatchConfig {
         return new StepBuilder("loadStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
                     logger.info("Loading data...");
+                    logger.info("Thread: {}", Thread.currentThread().getName());
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
                 .build();
