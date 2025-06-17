@@ -5,10 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +18,7 @@ public class CsvFileService {
     private static final String BASE_URL = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/";
     //private final RestTemplate restTemplate = new RestTemplate();
 
-    public List<String> getCsvFileUrls()
+    public List<String> getCsvFilePaths()
     {
         List<String> csvPaths = new ArrayList<>();
 
@@ -33,9 +31,8 @@ public class CsvFileService {
 
             for (Resource value : resources) {
                 logger.info("Datei gefunden: " + value);
-                csvPaths.add(value.getFilename());
+                csvPaths.add(value.getFile().getAbsolutePath());
             }
-
         } catch (IOException e)
         {
             logger.info("CSV Dateien nicht gefunden in main/resources/csv/");

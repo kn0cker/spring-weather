@@ -38,21 +38,21 @@ public class JobLuncherConfig {
     public void launchJobsWhenReady() {
         logger.info("Application started – launching batch jobs asynchronously…");
 
-        var urls = csvFileService.getCsvFileUrls();
-        int chunkSize = 100;
-        int totalJobs = (int) Math.ceil((double) urls.size() / chunkSize);
+        var paths = csvFileService.getCsvFilePaths();
+        int chunkSize = 3;
+        int totalJobs = (int) Math.ceil((double) paths.size() / chunkSize);
 
         for (int i = 0; i < totalJobs; i++) {
             int start = i * chunkSize;
-            int end   = Math.min(start + chunkSize, urls.size());
+            int end   = Math.min(start + chunkSize, paths.size());
 
             JobParameters params = new JobParametersBuilder()
-                    .addString("urls", String.join(",", urls.subList(start, end)))
+                    .addString("path", String.join(",", paths.subList(start, end)))
                     .addLong("time", System.currentTimeMillis())   // unique instance
                     .toJobParameters();
 
             try {
-                logger.info("→ Launching job for URLs {}-{}", start, end - 1);
+                logger.info("→ Launching job for Paths {}-{}", start, end - 1);
                 jobLauncher.run(fetchCsvChunkJob, params);        // returns immediately
             } catch (Exception ex) {
                 logger.error("✗ Failed to launch job {}: {}", i, ex.getMessage(), ex);
